@@ -407,7 +407,11 @@ fn coresight_component_tree(
             let part_info = peripheral_id.determine_part();
 
             let component_description = if let Some(part_info) = part_info {
-                format!("{: <15} (Coresight Component)", part_info.name())
+                format!(
+                    "{: <15} (Coresight Component) {:x?}",
+                    part_info.name(),
+                    access_port
+                )
             } else {
                 format!(
                     "Coresight Component, Part: {:#06x}, Devtype: {:#04x}, Archid: {:#06x}, Designer: {}",
