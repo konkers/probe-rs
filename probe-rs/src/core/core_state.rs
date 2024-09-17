@@ -261,6 +261,7 @@ impl CoreState {
             0 => DpAddress::Default,
             x => DpAddress::Multidrop(x),
         };
+        tracing::info!("addr: {:x?}", options.ap);
         match &options.ap {
             probe_rs_target::ApAddress::V1(ap) => FullyQualifiedApAddress::v1_with_dp(dp, *ap),
             probe_rs_target::ApAddress::V2(ap) => {

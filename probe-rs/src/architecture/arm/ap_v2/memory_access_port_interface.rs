@@ -139,7 +139,7 @@ impl<'iface> MemoryInterface<ArmError> for MemoryAccessPortInterface<'iface> {
     }
 
     fn flush(&mut self) -> Result<(), ArmError> {
-        todo!()
+        self.iface.flush()
     }
 }
 impl<'iface> ArmMemoryInterface for MemoryAccessPortInterface<'iface> {
