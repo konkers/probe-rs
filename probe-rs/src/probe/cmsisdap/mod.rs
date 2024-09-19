@@ -496,7 +496,8 @@ impl CmsisDap {
             }
 
             let mut transfers = TransferRequest::empty();
-            for command in batch.iter().cloned() {
+            for (i, command) in batch.iter().cloned().enumerate() {
+                tracing::debug!("{i}: {command:x?}");
                 match command {
                     BatchCommand::Read(port) => {
                         transfers.add_read(port);

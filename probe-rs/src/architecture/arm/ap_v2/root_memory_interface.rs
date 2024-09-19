@@ -86,6 +86,7 @@ impl MemoryInterface<ArmError> for RootMemoryInterface<'_> {
             let addr = address + (i as u64) * 4;
             let base = (self.base + addr) & 0xFFFF_FFFF_FFFF_FFF0;
             let fqa = FullyQualifiedApAddress::v2_with_dp(self.dp, ApV2Address::new_with_tip(base));
+            tracing::info!("root mem write_32: {fqa:x?} {addr:x} {base:x}");
 
             self.iface
                 .write_raw_ap_register(&fqa, (addr & 0xF) as u8, *d)?;

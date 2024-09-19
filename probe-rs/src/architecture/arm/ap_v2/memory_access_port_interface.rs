@@ -1,6 +1,6 @@
 use crate::{
     architecture::arm::{
-        ap_v2::registers::{Register, DRW, TAR, TAR2},
+        ap_v2::registers::{DataSize, Register, CSW, DRW, TAR, TAR2},
         communication_interface::{Initialized, SwdSequence},
         memory::ArmMemoryInterface,
         ApAddress, ArmCommunicationInterface, ArmError, FullyQualifiedApAddress,
@@ -44,6 +44,19 @@ impl<'iface> MemoryAccessPortInterface<'iface> {
             base,
         })
     }
+
+    fn set_transaction_size(&mut self, size: DataSize) -> Result<(), ArmError> {
+        let mut csw_raw = [0u32];
+        self.iface
+            .read_32(self.base + u64::from(CSW::ADDRESS), &mut csw_raw)?;
+        let mut csw = CSW::try_from(csw_raw[0])?;
+        tracing::info!("prev CSW: {csw:x?}.");
+        csw.SIZE = size;
+        csw.DbgSwEnable = true;
+        tracing::info!("Setting CSW to : {:x}.", u32::from(csw));
+        self.iface
+            .write_32(self.base + u64::from(CSW::ADDRESS), &[u32::from(csw)])
+    }
 }
 
 impl<'iface> SwdSequence for MemoryAccessPortInterface<'iface> {
@@ -74,21 +87,29 @@ impl<'iface> MemoryInterface<ArmError> for MemoryAccessPortInterface<'iface> {
     }
 
     fn read_32(&mut self, address: u64, data: &mut [u32]) -> Result<(), ArmError> {
+        self.set_transaction_size(DataSize::U32)?;
+
         // iface: fully qualified address points parent
         // base-address: base for the registers of this AP in the parent’s memory space
         // address: register address of the register, relative to the base address.
         let _faq = self.fully_qualified_address();
         for (i, d) in data.iter_mut().enumerate() {
             let address = address + (i as u64) * 4;
-            //tracing::debug!("Setting TAR to : {address:x}.");
+            tracing::info!("Setting TAR to : {address:x}.");
             self.iface
                 .write_word_32(self.base + u64::from(TAR::ADDRESS), address as u32)?;
+            self.iface.flush()?;
             self.iface
                 .write_word_32(self.base + u64::from(TAR2::ADDRESS), (address >> 32) as u32)?;
+            self.iface.flush()?;
+            let _ = self
+                .iface
+                .read_word_32(self.base + u64::from(TAR::ADDRESS))?;
+            tracing::info!("Reading at {:x} {:x?}->{:x}", self.base, _faq, address);
             *d = self
                 .iface
                 .read_word_32(self.base + u64::from(DRW::ADDRESS))?;
-            //tracing::trace!("Reading at {:x?}->{:x}: {:x}", _faq, address, d);
+            tracing::info!("Reading at {:x?}->{:x}: {:x}", _faq, address, d);
         }
 
         Ok(())
@@ -107,20 +128,23 @@ impl<'iface> MemoryInterface<ArmError> for MemoryAccessPortInterface<'iface> {
     }
 
     fn write_32(&mut self, address: u64, data: &[u32]) -> Result<(), ArmError> {
+        self.set_transaction_size(DataSize::U32)?;
         // iface: fully qualified address points parent
         // base-address: base for the registers of this AP in the parent’s memory space
         // address: register address of the register, relative to the base address.
         let _faq = self.fully_qualified_address();
         for (i, d) in data.iter().enumerate() {
             let address = address + (i as u64) * 4;
-            //tracing::debug!("Setting TAR to : {address:x}.");
+            tracing::info!("W: Setting TAR to : {address:x}.");
             self.iface
                 .write_word_32(self.base + u64::from(TAR::ADDRESS), address as u32)?;
+            tracing::info!("TAR2");
             self.iface
                 .write_word_32(self.base + u64::from(TAR2::ADDRESS), (address >> 32) as u32)?;
+            tracing::info!("writing at {:x?}->{:x}: {:x}", _faq, address, d);
             self.iface
                 .write_word_32(self.base + u64::from(DRW::ADDRESS), *d)?;
-            //tracing::trace!("Reading at {:x?}->{:x}: {:x}", _faq, address, d);
+            tracing::info!("write complete");
         }
 
         Ok(())
